@@ -9,6 +9,7 @@ from django.contrib import messages
 from datetime import datetime
 import logging
 import json
+from .restapis import get_dealers_from_cf, get_dealer_reviews_from_cf
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ def contact(request):
     context = {}
     if request.method == "GET":
         return render(request, 'djangoapp/contact.html', context)
+
 
 def login_request(request):
     context = {}
@@ -83,17 +85,68 @@ def registration_request(request):
             return render(request, 'djangoapp/registration.html', context)
 
 # Update the `get_dealerships` view to render the index page with a list of dealerships
+
+
 def get_dealerships(request):
     context = {}
     if request.method == "GET":
-        return render(request, 'djangoapp/index.html', context)
+        url = "https://eu-gb.functions.appdomain.cloud/api/v1/web/570d9ccc-0e4d-400b-a827-6c9e117b30cf/default/Get%20all%20dealerships"
+        # Get dealers from the URL
+        dealerships = get_dealers_from_cf(url)
+        context = dealerships
+        # Concat all dealer's short name
+        # dealer_names = ' '.join([dealer.short_name for dealer in dealerships])
+        # Return a list of dealer short name
+        return render(request, 'djangoapp/index.html')
 
 
 # Create a `get_dealer_details` view to render the reviews of a dealer
-# def get_dealer_details(request, dealer_id):
-# ...
+def get_dealer_details(request, dealer_id):
+    return HttpResponse(get_dealer_reviews_from_cf(request, dealer_id))
 
 # Create a `add_review` view to submit a review
 # def add_review(request, dealer_id):
-# ...
 
+
+def add_review(request, dealer_id):
+    user = request.user
+    context = {}
+    if user.is_authenticated:
+        if request.method == "POST":
+            username = request.user.username
+            print(request.POST)
+            payload = dict()
+            car_id = request.POST["car"]
+            payload["time"] = datetime.utcnow().isoformat()
+            payload["name"] = username
+            payload["dealership"] = id
+            payload["id"] = id
+            payload["review"] = request.POST["content"]
+            payload["purchase"] = False
+            if "purchasecheck" in request.POST:
+                if request.POST["purchasecheck"] == 'on':
+                    payload["purchase"] = True
+            payload["purchase_date"] = request.POST["purchasedate"]
+            payload["car_make"] = car.make.name
+            payload["car_model"] = car.name
+            payload["car_year"] = int(car.year)
+
+            new_payload = {}
+            new_payload["review"] = payload
+
+            url = "https://eu-gb.functions.appdomain.cloud/api/v1/web/zerodiversex_zerodiversex/dealerships/post-review.json"
+
+            # Get dealers from the URL
+            post_request(url, new_payload)
+            return redirect('djangoapp:dealer_details', **{"dealername": dealername, "id": id})
+
+            # url = "https://3dbc2a14.us-south.apigw.appdomain.cloud/postreview/api/review"
+            # result = post_request(url, json_payload)
+            # return HttpResponse(json_payload)
+
+        elif request.method == "GET":
+            models = list(
+                CarModel.car_manager.all().filter(dealerid=dealer_id))
+            context["cars"] = models
+            context["dealer_id"] = dealer_id
+            return render(request, 'djangoapp/add_review.html', context)
